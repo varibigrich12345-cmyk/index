@@ -79,6 +79,10 @@
       font-weight: 600;
       background: #f8f9fa;
     }
+    .preview-table th, .preview-table td {
+      border: none;
+      border-bottom: 1px solid #000;
+    }
     .btn {
       padding: 8px 16px;
       background: var(--primary);
@@ -203,29 +207,16 @@
     <tbody></tbody>
   </table>
 
-  <div class="totals">
-    <div>Итого работ: <span id="total-works">0</span> ₽</div>
-    <div>Итого запчастей: <span id="total-parts">0</span> ₽</div>
-    <div>Общая сумма: <span id="grand-total">0</span> ₽</div>
+  <div class="no-print" style="text-align:center; margin-top:20px;">
+    <button class="btn" onclick="printClaim()">📄 Распечатать заявку</button>
+    <button class="btn" style="background:#28a745;" onclick="printOrder()">🖨️ Распечатать заказ-наряд</button>
+    <button class="btn btn-save" onclick="exportTo1C()">📤 Экспорт в CSV для 1С</button>
   </div>
-
-  <div class="no-print">
-    <button class="btn btn-save" onclick="saveClaim()">✅ Сохранить</button>
-    <button class="btn" onclick="exportTo1C()">📤 Экспорт в CSV для 1С</button>
-    <button class="btn" onclick="showClaimPreview()">📄 Распечатать заявку</button>
-    <button class="btn" style="background:#28a745;" onclick="showOrderPreview()">🖨️ Распечатать заказ-наряд</button>
-  </div>
-</div>
-
-<!-- МОДАЛЬНОЕ ОКНО ПЕЧАТИ (оставим для совместимости) -->
-<div class="preview-modal" id="preview-modal" style="display:none;">
-  <div class="preview-content" id="preview-content"></div>
 </div>
 
 <script>
   let workIndex = 1, actualIndex = 1, partIndex = 1;
 
-  // Инициализация
   (() => {
     const now = new Date();
     const d = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
@@ -233,7 +224,7 @@
     document.getElementById('order-number').value = `СТА-${now.getFullYear()}-${String(Date.now() % 1000).padStart(3, '0')}`;
   })();
 
-  // === РАБОТА С ТАБЛИЦАМИ (без изменений) ===
+  // === ДОБАВЛЕНИЕ / УДАЛЕНИЕ СТРОК ===
   function addWorkRow(type) {
     const isPlanned = type === 'planned';
     const desc = (isPlanned ? document.getElementById('work-desc1') : document.getElementById('work-desc2')).value || '—';
@@ -245,7 +236,6 @@
     const tbody = document.querySelector(`#${type}-table tbody`);
     const row = tbody.insertRow();
     const idx = isPlanned ? workIndex++ : actualIndex++;
-
     const cells = [
       { t: idx },
       { t: desc },
@@ -260,7 +250,6 @@
       td[c.h ? 'innerHTML' : 'textContent'] = c.t || c.h;
       row.appendChild(td);
     });
-    recalc();
   }
 
   function addPartRow() {
@@ -281,23 +270,139 @@
       td[c.h ? 'innerHTML' : 'textContent'] = c.t || c.h;
       row.appendChild(td);
     });
-    recalc();
   }
 
-  function removeRow(btn) { btn.closest('tr').remove(); recalc(); }
+  function removeRow(btn) { btn.closest('tr').remove(); }
 
-  function recalc() {
-    let w = 0, p = 0;
-    document.querySelectorAll('#actual-table tbody tr').forEach(r => w += parseFloat(r.cells[6]?.textContent) || 0);
-    document.querySelectorAll('#parts-table tbody tr').forEach(r => p += parseFloat(r.cells[5]?.textContent) || 0);
-    const g = w + p;
-    document.getElementById('total-works').textContent = w;
-    document.getElementById('total-parts').textContent = p;
-    document.getElementById('grand-total').textContent = g;
+  // === ПЕЧАТЬ ЗАЯВКИ ===
+  function printClaim() {
+    const d = document.getElementById('current-date').textContent;
+    const n = document.getElementById('order-number').value;
+    const c = document.getElementById('client-company').value || '—';
+    const ct = document.getElementById('client-contact').value || '—';
+    const m = document.getElementById('master-name').value || '—';
+    const a = document.getElementById('field-agent').value || '—';
+    const b = document.getElementById('vehicle-brand').value || '—';
+    const p = document.getElementById('license-plate').value || '—';
+    const ph = document.getElementById('client-phone').value || '—';
+    const mi = (document.getElementById('mileage').value || '—') + ' км';
+
+    let html = `
+      <div style="font-family:Arial,sans-serif; padding:20px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:13px;">
+          <div><strong>ПОСТАВЩИК:</strong> ООО "СЕРВИСТРАНСАВТО"<br>ИНН 7723905004, КПП 772101001<br>111674, г. Москва, пр-кт Защитников Москвы<br>тел.: +7 (929) 774-88-66</div>
+          <div><strong>Дата:</strong> ${d}</div>
+        </div>
+        <div style="text-align:center; font-weight:bold; margin:12px 0; font-size:18px;">ЗАЯВКА НА РЕМОНТ</div>
+
+        <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:16px;">
+          <tr><td style="padding:4px;">Номер наряда: ${n}</td><td style="padding:4px;">Дата: ${d}</td></tr>
+          <tr><td style="padding:4px;">Компания: ${c}</td><td style="padding:4px;">Контакт: ${ct}</td></tr>
+          <tr><td style="padding:4px;">Мастер: ${m}</td><td style="padding:4px;">Сотрудник выезда: ${a}</td></tr>
+          <tr><td style="padding:4px;">Марка: ${b}</td><td style="padding:4px;">Гос. номер: ${p}</td></tr>
+          <tr><td style="padding:4px;">Телефон: ${ph}</td><td style="padding:4px;">Пробег: ${mi}</td></tr>
+        </table>
+    `;
+
+    html += createTableHTML('Заявленные работы', 'planned-table', false);
+    html += createTableHTML('Выполненные работы', 'actual-table', true);
+    html += createTableHTML('Запчасти', 'parts-table', true, true);
+    html += '</div>';
+
+    printWindow(html);
   }
 
-  function saveClaim() {
-    alert('✅ Заявка сохранена в памяти планшета.\nДля передачи в 1С используй кнопку «Экспорт в CSV для 1С».');
+  // === ПЕЧАТЬ ЗАКАЗ-НАРЯДА ===
+  function printOrder() {
+    const d = document.getElementById('current-date').textContent;
+    const n = document.getElementById('order-number').value;
+    let html = `
+      <div style="font-family:Arial,sans-serif; padding:20px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:13px;">
+          <div><strong>ПОСТАВЩИК:</strong> ООО "СЕРВИСТРАНСАВТО"<br>ИНН 7723905004, КПП 772101001<br>111674, г. Москва, пр-кт Защитников Москвы<br>тел.: +7 (929) 774-88-66</div>
+          <div><strong>Дата:</strong> ${d}</div>
+        </div>
+        <div style="text-align:center; font-weight:bold; margin:12px 0; font-size:18px;">ЗАКАЗ-НАРЯД №${n}</div>
+    `;
+
+    html += createTableHTML('Выполненные работы', 'actual-table', true);
+    html += createTableHTML('Запчасти', 'parts-table', true, true);
+    html += '</div>';
+
+    printWindow(html);
+  }
+
+  function createTableHTML(title, tableId, hasPrice, isPart = false) {
+    let html = `<h3 style="margin:12px 0; font-size:15px;">${title}</h3><table style="width:100%; border-collapse:collapse;">`;
+    const headers = isPart ? ['№','Артикул','Наименование','Кол-во','Цена','Сумма']
+                 : hasPrice ? ['№','Описание','Кол-во','Сторона','Положение','Цена','Сумма']
+                 : ['№','Описание','Кол-во','Сторона','Положение'];
+    html += '<thead><tr>';
+    headers.forEach(h => html += `<th style="text-align:left; padding:6px; border-bottom:1px solid #000;">${h}</th>`);
+    html += '</tr></thead><tbody>';
+
+    const rows = tableId === 'planned-table' ? document.querySelectorAll('#planned-table tbody tr')
+               : tableId === 'actual-table' ? document.querySelectorAll('#actual-table tbody tr')
+               : document.querySelectorAll('#parts-table tbody tr');
+
+    rows.forEach((row, i) => {
+      html += '<tr>';
+      if (isPart) {
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${i+1}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[1].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[2].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[3].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[4].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[5].textContent}</td>`;
+      } else if (hasPrice) {
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${i+1}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[1].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[2].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[3].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[4].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[5].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[6].textContent}</td>`;
+      } else {
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${i+1}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[1].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[2].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[3].textContent}</td>`;
+        html += `<td style="padding:6px; border-bottom:1px solid #000;">${row.cells[4].textContent}</td>`;
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  // === БЕЗОПАСНАЯ ПЕЧАТЬ ===
+  function printWindow(html) {
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('Разрешите всплывающие окна для печати.');
+      return;
+    }
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Печать</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+          th, td { text-align: left; padding: 6px; border-bottom: 1px solid #000; }
+        </style>
+      </head>
+      <body>
+        ${html}
+      </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.onload = () => {
+      try { win.print(); } catch (e) { alert('Ошибка печати'); }
+    };
   }
 
   // === ЭКСПОРТ В CSV ДЛЯ 1С ===
@@ -313,65 +418,21 @@
     const phone = document.getElementById('client-phone').value || '';
     const mileage = document.getElementById('mileage').value || '';
 
-    // === Формируем строки ===
     let lines = [];
-
-    // Заявленные
     document.querySelectorAll('#planned-table tbody tr').forEach(row => {
-      lines.push([
-        order, date, company, contact, master, agent, brand, plate, phone, mileage,
-        'Заявленная', 
-        row.cells[1].textContent, 
-        row.cells[2].textContent, 
-        row.cells[3].textContent, 
-        row.cells[4].textContent,
-        '', '', '' // артикул, цена, сумма — пусто
-      ]);
+      lines.push([order,date,company,contact,master,agent,brand,plate,phone,mileage,'Заявленная',row.cells[1].textContent,row.cells[2].textContent,row.cells[3].textContent,row.cells[4].textContent,'','','']);
     });
-
-    // Выполненные
     document.querySelectorAll('#actual-table tbody tr').forEach(row => {
-      lines.push([
-        order, date, company, contact, master, agent, brand, plate, phone, mileage,
-        'Выполненная', 
-        row.cells[1].textContent, 
-        row.cells[2].textContent, 
-        row.cells[3].textContent, 
-        row.cells[4].textContent,
-        '', 
-        row.cells[5].textContent, 
-        row.cells[6].textContent
-      ]);
+      lines.push([order,date,company,contact,master,agent,brand,plate,phone,mileage,'Выполненная',row.cells[1].textContent,row.cells[2].textContent,row.cells[3].textContent,row.cells[4].textContent,'',row.cells[5].textContent,row.cells[6].textContent]);
     });
-
-    // Запчасти
     document.querySelectorAll('#parts-table tbody tr').forEach(row => {
-      lines.push([
-        order, date, company, contact, master, agent, brand, plate, phone, mileage,
-        'Запчасть', 
-        row.cells[2].textContent, // Наименование
-        row.cells[3].textContent, // Кол-во
-        '', '', // сторона, положение — пусто
-        row.cells[1].textContent, // Артикул
-        row.cells[4].textContent, // Цена
-        row.cells[5].textContent  // Сумма
-      ]);
+      lines.push([order,date,company,contact,master,agent,brand,plate,phone,mileage,'Запчасть',row.cells[2].textContent,row.cells[3].textContent,'','',row.cells[1].textContent,row.cells[4].textContent,row.cells[5].textContent]);
     });
 
-    // === CSV-заголовок ===
-    const header = [
-      'Номер наряда', 'Дата', 'Компания', 'Контакт', 'Мастер', 'Сотрудник выезда',
-      'Марка', 'Гос. номер', 'Телефон', 'Пробег (км)',
-      'Тип строки', 'Описание/Наименование', 'Кол-во', 'Сторона', 'Положение', 'Артикул', 'Цена', 'Сумма'
-    ];
+    const header = ['Номер наряда','Дата','Компания','Контакт','Мастер','Сотрудник выезда','Марка','Гос. номер','Телефон','Пробег (км)','Тип строки','Описание/Наименование','Кол-во','Сторона','Положение','Артикул','Цена','Сумма'];
+    let csv = header.map(cell => `"${cell.replace(/"/g,'""')}"`).join(';') + '\n';
+    lines.forEach(line => csv += line.map(cell => `"${(cell||'').toString().replace(/"/g,'""')}"`).join(';') + '\n');
 
-    // === Собираем CSV ===
-    let csv = header.map(cell => `"${cell.replace(/"/g, '""')}"`).join(';') + '\n';
-    lines.forEach(line => {
-      csv += line.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(';') + '\n';
-    });
-
-    // === Скачиваем с BOM для UTF-8 ===
     const bom = '\uFEFF';
     const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -381,14 +442,6 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }
-
-  // === Печать (оставим, но без QR) ===
-  function showClaimPreview() {
-    alert('Предпросмотр временно отключён. Используй экспорт в CSV → загрузи в 1С → печать из 1С.');
-  }
-  function showOrderPreview() {
-    alert('Предпросмотр временно отключён. Используй экспорт в CSV → загрузи в 1С → печать из 1С.');
   }
 </script>
 
