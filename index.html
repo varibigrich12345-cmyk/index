@@ -11,6 +11,7 @@
       --bg: #fff;
       --primary: #007bff;
       --danger: #dc3545;
+      --success: #28a745;
     }
     * { box-sizing: border-box; }
     body {
@@ -94,137 +95,196 @@
       font-weight: bold;
       margin: 5px;
     }
-    .btn-save { background: #28a745; }
+    .btn-save { background: var(--success); }
+    .btn-archive { background: #6c757d; }
     .btn-sm { padding: 4px 8px; font-size: 12px; }
     .btn-delete { background: var(--danger); padding: 2px 6px; font-size: 12px; }
     .no-print {
       display: block;
       text-align: center;
-      margin-top: 20px;
+      margin-top: 10px;
     }
-    @media print {
-      .no-print { display: none !important; }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      background: #e9ecef;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .archive-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .archive-item {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    .archive-item:hover {
+      background: #f0f0f0;
     }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <div class="header-row">
-    <div>
-      ПОСТАВЩИК: Общество с ограниченной ответственностью "СЕРВИСТРАНСАВТО"<br>
-      ИНН 7723905004, КПП 772101001<br>
-      111674, г. Москва, вн.тер.г. муниципальный округ Некрасовка, пр-кт Защитников Москвы<br>
-      тел.: +7 (929) 774-88-66, Код по ОКПО 29289257
-    </div>
-    <div><strong>Дата:</strong> <span id="current-date">—</span></div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('form')">Новая заявка</button>
+    <button class="tab-btn" onclick="switchTab('archive')">Архив</button>
   </div>
 
-  <h2>Форма заявки</h2>
+  <!-- === ОСНОВНАЯ ФОРМА === -->
+  <div id="form-tab" class="tab-content active">
+    <div class="header-row">
+      <div>
+        ПОСТАВЩИК: Общество с ограниченной ответственностью "СЕРВИСТРАНСАВТО"<br>
+        ИНН 7723905004, КПП 772101001<br>
+        111674, г. Москва, вн.тер.г. муниципальный округ Некрасовка, пр-кт Защитников Москвы<br>
+        тел.: +7 (929) 774-88-66, Код по ОКПО 29289257
+      </div>
+      <div><strong>Дата:</strong> <span id="current-date">—</span></div>
+    </div>
 
-  <div class="form-row">
-    <div class="form-group">
-      <label>Номер наряда</label>
-      <input type="text" id="order-number" readonly>
+    <h2>Форма заявки</h2>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Номер наряда</label>
+        <input type="text" id="order-number" readonly>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Компания клиента</label>
+        <input type="text" id="client-company" placeholder="ООО / ИП / ФИО клиента">
+      </div>
+      <div class="form-group">
+        <label>Контакт</label>
+        <input type="text" id="client-contact" placeholder="Контактное лицо / телефон">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class "form-group">
+        <label>Мастер</label>
+        <input type="text" id="master-name" placeholder="Иванов И.И.">
+      </div>
+      <div class="form-group">
+        <label>Сотрудник выезда</label>
+        <input type="text" id="field-agent" placeholder="Петров П.П.">
+      </div>
+      <div class="form-group">
+        <label>Марка</label>
+        <input type="text" id="vehicle-brand" placeholder="ГАЗель, Ford Transit...">
+      </div>
+      <div class="form-group">
+        <label>Гос. номер</label>
+        <input type="text" id="license-plate" placeholder="А111ВВ77">
+      </div>
+      <div class="form-group">
+        <label>Телефон</label>
+        <input type="text" id="client-phone" placeholder="89123456789">
+      </div>
+      <div class="form-group">
+        <label>Пробег (км)</label>
+        <input type="number" id="mileage" placeholder="123456">
+      </div>
+    </div>
+
+    <h3>Заявленные работы</h3>
+    <div class="form-row">
+      <input type="text" placeholder="Описание" id="work-desc1" style="flex:2;">
+      <input type="number" placeholder="Кол-во" id="work-qty1" value="1" min="1" style="width:80px;">
+      <select id="work-side1" style="width:100px;"><option>—</option><option>Левая</option><option>Правая</option></select>
+      <select id="work-pos1" style="width:100px;"><option>—</option><option>Верх</option><option>Низ</option></select>
+      <button class="btn-sm" onclick="addWorkRow('planned')">+ Добавить</button>
+    </div>
+    <table id="planned-table">
+      <thead><tr><th>№</th><th>Описание</th><th>Кол-во</th><th>Сторона</th><th>Положение</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Выполненные работы</h3>
+    <div class="form-row">
+      <input type="text" placeholder="Описание" id="work-desc2" style="flex:2;">
+      <input type="number" placeholder="Кол-во" id="work-qty2" value="1" min="1" style="width:80px;">
+      <select id="work-side2" style="width:100px;"><option>—</option><option>Левая</option><option>Правая</option></select>
+      <select id="work-pos2" style="width:100px;"><option>—</option><option>Верх</option><option>Низ</option></select>
+      <input type="number" placeholder="Цена" id="work-price2" style="width:100px;">
+      <button class="btn-sm" onclick="addWorkRow('actual')">+ Добавить</button>
+    </div>
+    <table id="actual-table">
+      <thead><tr><th>№</th><th>Описание</th><th>Кол-во</th><th>Сторона</th><th>Положение</th><th>Цена</th><th>Сумма</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Запчасти</h3>
+    <div class="form-row">
+      <input type="text" placeholder="Артикул" id="part-art" style="width:120px;">
+      <input type="text" placeholder="Наименование" id="part-name" style="flex:2;">
+      <input type="number" placeholder="Кол-во" id="part-qty" value="1" min="1" style="width:80px;">
+      <input type="number" placeholder="Цена" id="part-price" style="width:100px;">
+      <button class="btn-sm" onclick="addPartRow()">+ Добавить</button>
+    </div>
+    <table id="parts-table">
+      <thead><tr><th>№</th><th>Артикул</th><th>Наименование</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="no-print">
+      <button class="btn" onclick="printClaim()">📄 Распечатать заявку</button>
+      <button class="btn" style="background:#28a745;" onclick="printOrder()">🖨️ Распечатать заказ-наряд</button>
+      <button class="btn btn-save" onclick="saveClaim()">✅ Сохранить в архив</button>
+      <button class="btn btn-save" onclick="exportTo1C()">📤 Экспорт в CSV для 1С</button>
     </div>
   </div>
 
-  <div class="form-row">
-    <div class="form-group">
-      <label>Компания клиента</label>
-      <input type="text" id="client-company" placeholder="ООО / ИП / ФИО клиента">
+  <!-- === АРХИВ === -->
+  <div id="archive-tab" class="tab-content">
+    <h2>Архив заявок</h2>
+    <div id="archive-list" class="archive-list"></div>
+    <div class="no-print" style="margin-top:20px;">
+      <button class="btn btn-archive" onclick="switchTab('form')">← Новая заявка</button>
     </div>
-    <div class="form-group">
-      <label>Контакт</label>
-      <input type="text" id="client-contact" placeholder="Контактное лицо / телефон">
-    </div>
-  </div>
-
-  <div class="form-row">
-    <div class="form-group">
-      <label>Мастер</label>
-      <input type="text" id="master-name" placeholder="Иванов И.И.">
-    </div>
-    <div class="form-group">
-      <label>Сотрудник выезда</label>
-      <input type="text" id="field-agent" placeholder="Петров П.П.">
-    </div>
-    <div class="form-group">
-      <label>Марка</label>
-      <input type="text" id="vehicle-brand" placeholder="ГАЗель, Ford Transit...">
-    </div>
-    <div class="form-group">
-      <label>Гос. номер</label>
-      <input type="text" id="license-plate" placeholder="А111ВВ77">
-    </div>
-    <div class="form-group">
-      <label>Телефон</label>
-      <input type="text" id="client-phone" placeholder="89123456789">
-    </div>
-    <div class="form-group">
-      <label>Пробег (км)</label>
-      <input type="number" id="mileage" placeholder="123456">
-    </div>
-  </div>
-
-  <h3>Заявленные работы</h3>
-  <div class="form-row">
-    <input type="text" placeholder="Описание" id="work-desc1" style="flex:2;">
-    <input type="number" placeholder="Кол-во" id="work-qty1" value="1" min="1" style="width:80px;">
-    <select id="work-side1" style="width:100px;"><option>—</option><option>Левая</option><option>Правая</option></select>
-    <select id="work-pos1" style="width:100px;"><option>—</option><option>Верх</option><option>Низ</option></select>
-    <button class="btn-sm" onclick="addWorkRow('planned')">+ Добавить</button>
-  </div>
-  <table id="planned-table">
-    <thead><tr><th>№</th><th>Описание</th><th>Кол-во</th><th>Сторона</th><th>Положение</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-
-  <h3>Выполненные работы</h3>
-  <div class="form-row">
-    <input type="text" placeholder="Описание" id="work-desc2" style="flex:2;">
-    <input type="number" placeholder="Кол-во" id="work-qty2" value="1" min="1" style="width:80px;">
-    <select id="work-side2" style="width:100px;"><option>—</option><option>Левая</option><option>Правая</option></select>
-    <select id="work-pos2" style="width:100px;"><option>—</option><option>Верх</option><option>Низ</option></select>
-    <input type="number" placeholder="Цена" id="work-price2" style="width:100px;">
-    <button class="btn-sm" onclick="addWorkRow('actual')">+ Добавить</button>
-  </div>
-  <table id="actual-table">
-    <thead><tr><th>№</th><th>Описание</th><th>Кол-во</th><th>Сторона</th><th>Положение</th><th>Цена</th><th>Сумма</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-
-  <h3>Запчасти</h3>
-  <div class="form-row">
-    <input type="text" placeholder="Артикул" id="part-art" style="width:120px;">
-    <input type="text" placeholder="Наименование" id="part-name" style="flex:2;">
-    <input type="number" placeholder="Кол-во" id="part-qty" value="1" min="1" style="width:80px;">
-    <input type="number" placeholder="Цена" id="part-price" style="width:100px;">
-    <button class="btn-sm" onclick="addPartRow()">+ Добавить</button>
-  </div>
-  <table id="parts-table">
-    <thead><tr><th>№</th><th>Артикул</th><th>Наименование</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr></thead>
-    <tbody></tbody>
-  </table>
-
-  <div class="no-print" style="text-align:center; margin-top:20px;">
-    <button class="btn" onclick="printClaim()">📄 Распечатать заявку</button>
-    <button class="btn" style="background:#28a745;" onclick="printOrder()">🖨️ Распечатать заказ-наряд</button>
-    <button class="btn btn-save" onclick="exportTo1C()">📤 Экспорт в CSV для 1С</button>
   </div>
 </div>
 
 <script>
   let workIndex = 1, actualIndex = 1, partIndex = 1;
+  let lastSeq = parseInt(localStorage.getItem('lastClaimSeq') || '0');
 
-  (() => {
+  // === ИНИЦИАЛИЗАЦИЯ ===
+  init();
+
+  function init() {
     const now = new Date();
     const d = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
     document.getElementById('current-date').textContent = d;
-    document.getElementById('order-number').value = `СТА-${now.getFullYear()}-${String(Date.now() % 1000).padStart(3, '0')}`;
-  })();
+    generateOrderNumber();
+    loadArchive();
+  }
 
-  // === ДОБАВЛЕНИЕ / УДАЛЕНИЕ СТРОК ===
+  function generateOrderNumber() {
+    lastSeq++;
+    localStorage.setItem('lastClaimSeq', lastSeq.toString());
+    document.getElementById('order-number').value = `СТА-${new Date().getFullYear()}-${String(lastSeq).padStart(3, '0')}`;
+  }
+
+  // === РАБОТА С ТАБЛИЦАМИ ===
   function addWorkRow(type) {
     const isPlanned = type === 'planned';
     const desc = (isPlanned ? document.getElementById('work-desc1') : document.getElementById('work-desc2')).value || '—';
@@ -274,7 +334,202 @@
 
   function removeRow(btn) { btn.closest('tr').remove(); }
 
-  // === ПЕЧАТЬ ЗАЯВКИ ===
+  // === СОХРАНЕНИЕ В АРХИВ ===
+  function saveClaim() {
+    const data = {
+      id: Date.now(),
+      header: {
+        order: document.getElementById('order-number').value,
+        date: document.getElementById('current-date').textContent,
+        company: document.getElementById('client-company').value || '—',
+        contact: document.getElementById('client-contact').value || '—',
+        master: document.getElementById('master-name').value || '—',
+        agent: document.getElementById('field-agent').value || '—',
+        brand: document.getElementById('vehicle-brand').value || '—',
+        plate: document.getElementById('license-plate').value || '—',
+        phone: document.getElementById('client-phone').value || '—',
+        mileage: (document.getElementById('mileage').value || '—') + ' км'
+      },
+      planned: getTableData('planned-table', false),
+      actual: getTableData('actual-table', true),
+      parts: getTableData('parts-table', true),
+      totals: {
+        works: document.getElementById('total-works')?.textContent || '0',
+        parts: document.getElementById('total-parts')?.textContent || '0',
+        grand: document.getElementById('grand-total')?.textContent || '0'
+      },
+      savedAt: new Date().toISOString()
+    };
+
+    // Обновляем итоги, если не было расчёта
+    if (!data.totals.works || data.totals.works === '0') {
+      let w = 0, p = 0;
+      data.actual.forEach(r => w += parseFloat(r.total) || 0);
+      data.parts.forEach(r => p += parseFloat(r.total) || 0);
+      data.totals.works = w.toString();
+      data.totals.parts = p.toString();
+      data.totals.grand = (w + p).toString();
+    }
+
+    const key = 'claims';
+    let list = JSON.parse(localStorage.getItem(key) || '[]');
+    list.push(data);
+    localStorage.setItem(key, JSON.stringify(list));
+    alert(`✅ Заявка сохранена в архив!\nНомер: ${data.header.order}`);
+    loadArchive();
+  }
+
+  function getTableData(tableId, hasPrice) {
+    const rows = [];
+    document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
+      const c = row.cells;
+      if (tableId === 'parts-table') {
+        rows.push({ art: c[1].textContent, name: c[2].textContent, qty: c[3].textContent, price: c[4].textContent, total: c[5].textContent });
+      } else if (hasPrice) {
+        rows.push({ desc: c[1].textContent, qty: c[2].textContent, side: c[3].textContent, pos: c[4].textContent, price: c[5].textContent, total: c[6].textContent });
+      } else {
+        rows.push({ desc: c[1].textContent, qty: c[2].textContent, side: c[3].textContent, pos: c[4].textContent });
+      }
+    });
+    return rows;
+  }
+
+  // === ЗАГРУЗКА АРХИВА ===
+  function loadArchive() {
+    const list = JSON.parse(localStorage.getItem('claims') || '[]');
+    const container = document.getElementById('archive-list');
+    container.innerHTML = '';
+    if (list.length === 0) {
+      container.innerHTML = '<div style="text-align:center; color:#666;">Архив пуст</div>';
+      return;
+    }
+    // Сортируем по дате (новые выше)
+    list.sort((a, b) => new Date(b.header.date.split('.').reverse().join('-')) - new Date(a.header.date.split('.').reverse().join('-')));
+    list.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'archive-item';
+      div.innerHTML = `
+        <strong>Заявка от ${item.header.date}</strong><br>
+        Номер: ${item.header.order}<br>
+        Компания: ${item.header.company}<br>
+        Итого: ${item.totals.grand} ₽
+        <div style="margin-top:8px;">
+          <button class="btn-sm" style="background:#17a2b8;" onclick="loadClaim(${item.id})">Редактировать</button>
+          <button class="btn-sm" style="background:#28a745;" onclick="printClaimFromArchive(${item.id})">Печать</button>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  // === ЗАГРУЗКА ЗАЯВКИ В ФОРМУ ===
+  function loadClaim(id) {
+    const list = JSON.parse(localStorage.getItem('claims') || '[]');
+    const item = list.find(x => x.id == id);
+    if (!item) return;
+
+    // Очистка таблиц
+    ['planned-table', 'actual-table', 'parts-table'].forEach(id => {
+      document.querySelector(`#${id} tbody`).innerHTML = '';
+    });
+    workIndex = 1; actualIndex = 1; partIndex = 1;
+    lastSeq = parseInt(item.header.order.split('-')[2]) - 1;
+
+    // Заполнение полей
+    document.getElementById('order-number').value = item.header.order;
+    document.getElementById('client-company').value = item.header.company === '—' ? '' : item.header.company;
+    document.getElementById('client-contact').value = item.header.contact === '—' ? '' : item.header.contact;
+    document.getElementById('master-name').value = item.header.master === '—' ? '' : item.header.master;
+    document.getElementById('field-agent').value = item.header.agent === '—' ? '' : item.header.agent;
+    document.getElementById('vehicle-brand').value = item.header.brand === '—' ? '' : item.header.brand;
+    document.getElementById('license-plate').value = item.header.plate === '—' ? '' : item.header.plate;
+    document.getElementById('client-phone').value = item.header.phone === '—' ? '' : item.header.phone;
+    document.getElementById('mileage').value = item.header.mileage.replace(' км', '').replace('—', '');
+
+    // Заполнение таблиц
+    item.planned.forEach(row => {
+      const tr = document.querySelector('#planned-table tbody').insertRow();
+      const idx = workIndex++;
+      const cells = [
+        { t: idx }, { t: row.desc }, { t: row.qty }, { t: row.side }, { t: row.pos },
+        { h: `<button class="btn-delete" onclick="removeRow(this)">✕</button>` }
+      ];
+      cells.forEach(c => {
+        const td = document.createElement('td');
+        td[c.h ? 'innerHTML' : 'textContent'] = c.t || c.h;
+        tr.appendChild(td);
+      });
+    });
+
+    item.actual.forEach(row => {
+      const tr = document.querySelector('#actual-table tbody').insertRow();
+      const idx = actualIndex++;
+      const cells = [
+        { t: idx }, { t: row.desc }, { t: row.qty }, { t: row.side }, { t: row.pos },
+        { t: row.price }, { t: row.total },
+        { h: `<button class="btn-delete" onclick="removeRow(this)">✕</button>` }
+      ];
+      cells.forEach(c => {
+        const td = document.createElement('td');
+        td[c.h ? 'innerHTML' : 'textContent'] = c.t || c.h;
+        tr.appendChild(td);
+      });
+    });
+
+    item.parts.forEach(row => {
+      const tr = document.querySelector('#parts-table tbody').insertRow();
+      const idx = partIndex++;
+      const cells = [
+        { t: idx }, { t: row.art }, { t: row.name }, { t: row.qty }, { t: row.price }, { t: row.total },
+        { h: `<button class="btn-delete" onclick="removeRow(this)">✕</button>` }
+      ];
+      cells.forEach(c => {
+        const td = document.createElement('td');
+        td[c.h ? 'innerHTML' : 'textContent'] = c.t || c.h;
+        tr.appendChild(td);
+      });
+    });
+
+    // Обновление итогов
+    if (item.totals) {
+      if (document.getElementById('total-works')) document.getElementById('total-works').textContent = item.totals.works;
+      if (document.getElementById('total-parts')) document.getElementById('total-parts').textContent = item.totals.parts;
+      if (document.getElementById('grand-total')) document.getElementById('grand-total').textContent = item.totals.grand;
+    }
+
+    switchTab('form');
+  }
+
+  // === ПЕЧАТЬ ИЗ АРХИВА ===
+  function printClaimFromArchive(id) {
+    const list = JSON.parse(localStorage.getItem('claims') || '[]');
+    const item = list.find(x => x.id == id);
+    if (!item) return;
+
+    // Временно загружаем данные
+    const tempOrder = document.getElementById('order-number').value;
+    const tempCompany = document.getElementById('client-company').value;
+    // ... (для простоты — используем printClaim, но с данными из архива)
+    // В реальности — лучше сделать отдельную функцию, но для демо — загрузим и напечатаем
+    loadClaim(id);
+    setTimeout(() => {
+      if (confirm('Напечатать заявку из архива?')) {
+        printClaim();
+      }
+      // Восстановим текущее состояние (опционально)
+    }, 100);
+  }
+
+  // === ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ===
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(`${tab}-tab`).classList.add('active');
+    document.querySelector(`.tab-btn:nth-child(${tab === 'form' ? 1 : 2})`).classList.add('active');
+  }
+
+  // === ПЕЧАТЬ ===
   function printClaim() {
     const d = document.getElementById('current-date').textContent;
     const n = document.getElementById('order-number').value;
@@ -290,7 +545,7 @@
     let html = `
       <div style="font-family:Arial,sans-serif; padding:20px;">
         <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:13px;">
-          <div><strong>ПОСТАВЩИК:</strong> ООО "СЕРВИСТРАНСАВТО"<br>ИНН 7723905004, КПП 772101001<br>111674, г. Москва, пр-кт Защитников Москвы<br>тел.: +7 (929) 774-88-66</div>
+          <div><strong>ПОСТАВЩИК:</strong> ООО "СЕРВИСТРАНСАВТО"<br>ИНН 7723905004, КПП 772101001<br>111674, г. Москва, пр-кт Защитников Москвы<br>тел.: +7 (929) 774-88-66, Код по ОКПО 29289257</div>
           <div><strong>Дата:</strong> ${d}</div>
         </div>
         <div style="text-align:center; font-weight:bold; margin:12px 0; font-size:18px;">ЗАЯВКА НА РЕМОНТ</div>
@@ -312,14 +567,13 @@
     printWindow(html);
   }
 
-  // === ПЕЧАТЬ ЗАКАЗ-НАРЯДА ===
   function printOrder() {
     const d = document.getElementById('current-date').textContent;
     const n = document.getElementById('order-number').value;
     let html = `
       <div style="font-family:Arial,sans-serif; padding:20px;">
         <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:13px;">
-          <div><strong>ПОСТАВЩИК:</strong> ООО "СЕРВИСТРАНСАВТО"<br>ИНН 7723905004, КПП 772101001<br>111674, г. Москва, пр-кт Защитников Москвы<br>тел.: +7 (929) 774-88-66</div>
+          <div><strong>ПОСТАВЩИК:</strong> ООО "СЕРВИСТРАНСАВТО"<br>ИНН 7723905004, КПП 772101001<br>111674, г. Москва, пр-кт Защитников Москвы<br>тел.: +7 (929) 774-88-66, Код по ОКПО 29289257</div>
           <div><strong>Дата:</strong> ${d}</div>
         </div>
         <div style="text-align:center; font-weight:bold; margin:12px 0; font-size:18px;">ЗАКАЗ-НАРЯД №${n}</div>
@@ -375,7 +629,6 @@
     return html;
   }
 
-  // === БЕЗОПАСНАЯ ПЕЧАТЬ ===
   function printWindow(html) {
     const win = window.open('', '_blank');
     if (!win) {
@@ -405,7 +658,7 @@
     };
   }
 
-  // === ЭКСПОРТ В CSV ДЛЯ 1С ===
+  // === ЭКСПОРТ В CSV ===
   function exportTo1C() {
     const order = document.getElementById('order-number').value;
     const date = document.getElementById('current-date').textContent;
@@ -443,6 +696,28 @@
     a.click();
     document.body.removeChild(a);
   }
+
+  // === ИТОГИ (для совместимости) ===
+  function recalc() {
+    let works = 0, parts = 0;
+    document.querySelectorAll('#actual-table tbody tr').forEach(row => {
+      const total = parseFloat(row.cells[6]?.textContent) || 0;
+      works += total;
+    });
+    document.querySelectorAll('#parts-table tbody tr').forEach(row => {
+      const total = parseFloat(row.cells[5]?.textContent) || 0;
+      parts += total;
+    });
+    const grand = works + parts;
+    if (document.getElementById('total-works')) document.getElementById('total-works').textContent = works;
+    if (document.getElementById('total-parts')) document.getElementById('total-parts').textContent = parts;
+    if (document.getElementById('grand-total')) document.getElementById('grand-total').textContent = grand;
+  }
+
+  // Обновляем итоги при изменении
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', recalc);
+  });
 </script>
 
 </body>
