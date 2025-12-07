@@ -269,6 +269,8 @@
     <div class="no-print">
       <button class="btn" onclick="printClaim()">📄 Распечатать заявку на ремонт</button>
       <button class="btn" style="background:#28a745;" onclick="printOrder()">🖨️ Распечатать заказ-наряд</button>
+      <button class="btn btn-save" onclick="saveToLocal()">✅ Сохранить в архив</button>
+      <button class="btn btn-save" onclick="exportTo1C()">📤 Экспорт в CSV для 1С</button>
     </div>
   </div>
 
@@ -286,18 +288,15 @@
   let workIndex = 1, actualIndex = 1, partIndex = 1;
   let lastSeq = parseInt(localStorage.getItem('lastClaimSeq') || '0');
 
-  // ✅ ТВОЙ НОВЫЙ URL ОТ GOOGLE
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwN_caKprFrzkQsdXswluWHzMKycIYMr441QqislfdRei40OJiHXwVBX5mQekCU4sZ5DA/exec';
-  const SHEET_ID = '18gp0Vm4XKYtScNIwp423XHlDuEx1Ne_sbcd1NSO0Bko';
+  // === ИНИЦИАЛИЗАЦИЯ ===
+  init();
 
-  // ✅ ИНИЦИАЛИЗАЦИЯ С АВТООБНОВЛЕНИЕМ
   function init() {
     const now = new Date();
     const d = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
     document.getElementById('current-date').textContent = d;
     generateOrderNumber();
-    loadArchiveFromGoogle();
-    setInterval(loadArchiveFromGoogle, 30000); // автообновление каждые 30 сек
+    loadArchive();
   }
 
   function generateOrderNumber() {
@@ -321,10 +320,10 @@
     
     workIndex = 1; actualIndex = 1; partIndex = 1;
     
+    // Обновляем дату и номер
     const now = new Date();
     const d = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
     document.getElementById('current-date').textContent = d;
-    
     generateOrderNumber();
   }
 
@@ -345,10 +344,7 @@
       { t: qty },
       { t: side },
       { t: pos },
-      ...(isPlanned ? [] : [
-        { t: (price !== null ? price.toFixed(2) + ' ₽' : '') },
-        { t: (total !== null ? total.toFixed(2) + ' ₽' : '') }
-      ]),
+      ...(isPlanned ? [] : [{ t: price !== null ? price.toFixed(2) + ' ₽' : '' }, { t: total !== null ? total.toFixed(2) + ' ₽' : '' }]),
       { h: `<button class="btn-delete" onclick="removeRow(this)">✕</button>` }
     ];
     cells.forEach(c => {
@@ -382,38 +378,24 @@
 
   function removeRow(btn) { btn.closest('tr').remove(); }
 
-  function printClaim() {
-    saveAndExport('zayavka');
-    printDocument('claim');
-    resetForm();
-  }
-
-  function printOrder() {
-    saveAndExport('zakaz-naryad');
-    printDocument('order');
-  }
-
-  // ✅ ОСНОВНАЯ ФУНКЦИЯ ОТПРАВКИ
-  function saveAndExport(type) {
+  function saveToLocal() {
     const data = {
       id: Date.now(),
       header: {
         order: document.getElementById('order-number').value,
         date: document.getElementById('current-date').textContent,
-        company: document.getElementById('client-company').value || '',
-        contact: document.getElementById('client-contact').value || '',
-        master: document.getElementById('master-name').value || '',
-        clientFio: document.getElementById('client-fio').value || '', // ← ФИО клиента!
-        brand: document.getElementById('vehicle-brand').value || '',
-        plate: document.getElementById('license-plate').value || '',
+        company: document.getElementById('client-company').value || '—',
+        contact: document.getElementById('client-contact').value || '—',
+        master: document.getElementById('master-name').value || '—',
+        clientFio: document.getElementById('client-fio').value || '—',
+        brand: document.getElementById('vehicle-brand').value || '—',
+        plate: document.getElementById('license-plate').value || '—',
         phone: '+7 999 599 00 03',
-        mileage: (document.getElementById('mileage').value || '') + ' км'
+        mileage: (document.getElementById('mileage').value || '—') + ' км'
       },
       planned: getTableData('planned-table', false),
       actual: getTableData('actual-table', true),
-      parts: getTableData('parts-table', true),
-      savedAt: new Date().toISOString(),
-      status: type === 'zakaz-naryad' ? 'zakaz-naryad' : 'zayavka'
+      parts: getTableData('parts-table', true)
     };
 
     let works = 0, parts = 0;
@@ -425,33 +407,12 @@
       grand: works + parts
     };
 
-    // Локальное сохранение
     const key = 'claims';
     let list = JSON.parse(localStorage.getItem(key) || '[]');
-    const existingIndex = list.findIndex(x => x.header.order === data.header.order);
-    if (existingIndex >= 0) {
-      list[existingIndex] = data;
-    } else {
-      list.push(data);
-    }
+    list.push(data);
     localStorage.setItem(key, JSON.stringify(list));
-
-    // ✅ ОТПРАВКА В GOOGLE
-    fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-    .then(response => response.text())
-    .then(text => {
-      console.log('Успех:', text);
-      autoExportToCSV(data, type);
-      loadArchiveFromGoogle();
-    })
-    .catch(err => {
-      console.error('Ошибка отправки:', err);
-      alert('Ошибка синхронизации. Данные сохранены локально. Повторите позже.');
-    });
+    alert(`✅ Заявка сохранена!\nНомер: ${data.header.order}`);
+    loadArchive();
   }
 
   function getTableData(tableId, hasPrice) {
@@ -459,97 +420,18 @@
     document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
       const c = row.cells;
       if (tableId === 'parts-table') {
-        rows.push({ 
-          art: c[1].textContent, 
-          name: c[2].textContent, 
-          qty: c[3].textContent, 
-          price: c[4].textContent.replace(' ₽', ''), 
-          total: c[5].textContent.replace(' ₽', '') 
-        });
+        rows.push({ art: c[1].textContent, name: c[2].textContent, qty: c[3].textContent, price: c[4].textContent.replace(' ₽', ''), total: c[5].textContent.replace(' ₽', '') });
       } else if (hasPrice) {
-        rows.push({ 
-          desc: c[1].textContent, 
-          qty: c[2].textContent, 
-          side: c[3].textContent, 
-          pos: c[4].textContent,
-          price: c[5].textContent.replace(' ₽', ''),
-          total: c[6].textContent.replace(' ₽', '')
-        });
+        rows.push({ desc: c[1].textContent, qty: c[2].textContent, side: c[3].textContent, pos: c[4].textContent, price: c[5].textContent.replace(' ₽', ''), total: c[6].textContent.replace(' ₽', '') });
       } else {
-        rows.push({ 
-          desc: c[1].textContent, 
-          qty: c[2].textContent, 
-          side: c[3].textContent, 
-          pos: c[4].textContent 
-        });
+        rows.push({ desc: c[1].textContent, qty: c[2].textContent, side: c[3].textContent, pos: c[4].textContent });
       }
     });
     return rows;
   }
 
-  // === ЗАГРУЗКА ИЗ GOOGLE ТАБЛИЦЫ ===
-  function loadArchiveFromGoogle() {
-    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv`;
-    
-    fetch(CSV_URL)
-      .then(response => response.text())
-      .then(csvText => {
-        const lines = csvText.split('\n').slice(1).filter(line => line.trim());
-        const claims = {};
-        
-        lines.forEach(line => {
-          const cleanLine = line.replace(/^"|"$/g, '').replace(/""/g, '"');
-          const cols = cleanLine.split('","');
-          if (cols.length < 18) return;
-          
-          const order = cols[0];
-          if (!claims[order]) {
-            claims[order] = {
-              header: {
-                order: cols[0],
-                date: cols[1],
-                company: cols[2],
-                contact: cols[3],
-                master: cols[4],
-                clientFio: cols[5],
-                brand: cols[6],
-                plate: cols[7],
-                phone: cols[8],
-                mileage: cols[9]
-              },
-              planned: [],
-              actual: [],
-              parts: [],
-              status: cols[18] || 'zayavka',
-              savedAt: new Date()
-            };
-          }
-          
-          const type = cols[10];
-          if (type === 'Заявленная') {
-            claims[order].planned.push({desc: cols[11], qty: cols[12], side: cols[13], pos: cols[14]});
-          } else if (type === 'Выполненная') {
-            claims[order].actual.push({desc: cols[11], qty: cols[12], side: cols[13], pos: cols[14], price: cols[16], total: cols[17]});
-          } else if (type === 'Запчасть') {
-            claims[order].parts.push({name: cols[11], qty: cols[12], art: cols[15], price: cols[16], total: cols[17]});
-          }
-        });
-        
-        localStorage.setItem('claims', JSON.stringify(Object.values(claims)));
-        renderArchive(Object.values(claims));
-      })
-      .catch(err => {
-        console.error('Ошибка загрузки:', err);
-        loadArchiveFromLocal();
-      });
-  }
-
-  function loadArchiveFromLocal() {
+  function loadArchive() {
     const list = JSON.parse(localStorage.getItem('claims') || '[]');
-    renderArchive(list);
-  }
-
-  function renderArchive(list) {
     const container = document.getElementById('archive-list');
     container.innerHTML = '';
     if (list.length === 0) {
@@ -557,58 +439,31 @@
       return;
     }
 
-    list.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    list.sort((a, b) => new Date(b.header.date.split('.').reverse().join('-')) - new Date(a.header.date.split('.').reverse().join('-')));
 
-    const groups = {};
     list.forEach(item => {
-      const dateKey = item.header.date;
-      if (!groups[dateKey]) groups[dateKey] = [];
-      groups[dateKey].push(item);
-    });
-
-    Object.keys(groups).forEach(date => {
-      const dateDiv = document.createElement('div');
-      dateDiv.className = 'archive-date-header';
-      dateDiv.textContent = date;
-      container.appendChild(dateDiv);
-
-      groups[date].forEach(item => {
-        const grandStr = (parseFloat(item.totals?.grand || 0)).toFixed(2) + ' ₽';
-        const statusClass = item.status === 'zakaz-naryad' ? 'status-zakaz' : 'status-zayavka';
-        const statusText = item.status === 'zakaz-naryad' ? 'Заказ-наряд' : 'Заявка';
-        
-        const div = document.createElement('div');
-        div.className = 'archive-item';
-        div.innerHTML = `
-          <div>
-            Заявка №: ${item.header.order}
-            <span class="archive-status ${statusClass}">${statusText}</span>
-          </div>
-          <div>Компания: ${item.header.company || '—'}</div>
-          <div>ФИО клиента: ${item.header.clientFio || '—'}</div>
-          <div>Итого: ${grandStr}</div>
-          <div class="archive-actions">
-            ${item.status === 'zayavka' ? 
-              `<button class="btn-sm" style="background:#17a2b8;" onclick="loadClaim('${item.header.order}')">Редактировать</button>` : 
-              `<button class="btn-sm" style="background:#6c757d;" disabled>Закрыто</button>`}
-            <button class="btn-sm" style="background:#28a745;" onclick="printClaimFromArchive('${item.header.order}')">Печать</button>
-          </div>
-        `;
-        container.appendChild(div);
-      });
+      const div = document.createElement('div');
+      div.className = 'archive-item';
+      div.innerHTML = `
+        <div>Заявка от ${item.header.date}</div>
+        <div>Номер: ${item.header.order}</div>
+        <div>Компания: ${item.header.company}</div>
+        <div>ФИО клиента: ${item.header.clientFio}</div>
+        <div>Итого: ${(parseFloat(item.totals?.grand) || 0).toFixed(2)} ₽</div>
+        <div class="archive-actions">
+          <button class="btn-sm" style="background:#17a2b8;" onclick="loadClaim(${item.id})">Редактировать</button>
+          <button class="btn-sm" style="background:#28a745;" onclick="printClaimFromArchive(${item.id})">Печать</button>
+        </div>
+      `;
+      container.appendChild(div);
     });
   }
 
-  // Остальные функции (loadClaim, printClaimFromArchive, switchTab, printDocument, createTableHTML, printWindow, autoExportToCSV)
-  // полностью совместимы и работают без изменений — опущены для краткости, но присутствуют в полной версии.
-
-  // --- НЕ МЕНЯТЬ ---
-  function loadClaim(orderId) {
+  function loadClaim(id) {
     const list = JSON.parse(localStorage.getItem('claims') || '[]');
-    const item = list.find(x => x.header.order === orderId);
-    if (!item || item.status === 'zakaz-naryad') return;
+    const item = list.find(x => x.id == id);
+    if (!item) return;
 
-    switchTab('form');
     ['planned-table', 'actual-table', 'parts-table'].forEach(id => {
       document.querySelector(`#${id} tbody`).innerHTML = '';
     });
@@ -616,13 +471,13 @@
     lastSeq = parseInt(item.header.order.split('-')[2]) - 1;
 
     document.getElementById('order-number').value = item.header.order;
-    document.getElementById('client-company').value = item.header.company;
-    document.getElementById('client-contact').value = item.header.contact;
-    document.getElementById('master-name').value = item.header.master;
-    document.getElementById('client-fio').value = item.header.clientFio;
-    document.getElementById('vehicle-brand').value = item.header.brand;
-    document.getElementById('license-plate').value = item.header.plate;
-    document.getElementById('mileage').value = item.header.mileage.replace(' км', '');
+    document.getElementById('client-company').value = item.header.company === '—' ? '' : item.header.company;
+    document.getElementById('client-contact').value = item.header.contact === '—' ? '' : item.header.contact;
+    document.getElementById('master-name').value = item.header.master === '—' ? '' : item.header.master;
+    document.getElementById('client-fio').value = item.header.clientFio === '—' ? '' : item.header.clientFio;
+    document.getElementById('vehicle-brand').value = item.header.brand === '—' ? '' : item.header.brand;
+    document.getElementById('license-plate').value = item.header.plate === '—' ? '' : item.header.plate;
+    document.getElementById('mileage').value = item.header.mileage.replace(' км', '').replace('—', '');
 
     item.planned.forEach(row => {
       const tr = document.querySelector('#planned-table tbody').insertRow();
@@ -666,19 +521,13 @@
         tr.appendChild(td);
       });
     });
+
+    switchTab('form');
   }
 
-  function printClaimFromArchive(orderId) {
-    loadClaim(orderId);
-    setTimeout(() => {
-      const list = JSON.parse(localStorage.getItem('claims') || '[]');
-      const item = list.find(x => x.header.order === orderId);
-      if (item && item.status === 'zakaz-naryad') {
-        printDocument('order');
-      } else {
-        printDocument('claim');
-      }
-    }, 100);
+  function printClaimFromArchive(id) {
+    loadClaim(id);
+    setTimeout(printClaim, 100);
   }
 
   function switchTab(tab) {
@@ -688,25 +537,17 @@
     document.querySelector(`.tab-btn:nth-child(${tab === 'form' ? 1 : 2})`).classList.add('active');
   }
 
-  function printDocument(type) {
-    if (type === 'claim') {
-      printClaimDocument();
-    } else {
-      printOrderDocument();
-    }
-  }
-
-  function printClaimDocument() {
+  function printClaim() {
     const d = document.getElementById('current-date').textContent;
     const n = document.getElementById('order-number').value;
-    const c = document.getElementById('client-company').value || '';
-    const ct = document.getElementById('client-contact').value || '';
-    const m = document.getElementById('master-name').value || '';
-    const clientFio = document.getElementById('client-fio').value || '';
-    const b = document.getElementById('vehicle-brand').value || '';
-    const p = document.getElementById('license-plate').value || '';
+    const c = document.getElementById('client-company').value || '—';
+    const ct = document.getElementById('client-contact').value || '—';
+    const m = document.getElementById('master-name').value || '—';
+    const clientFio = document.getElementById('client-fio').value || '—';
+    const b = document.getElementById('vehicle-brand').value || '—';
+    const p = document.getElementById('license-plate').value || '—';
     const ph = '+7 999 599 00 03';
-    const mi = document.getElementById('mileage').value ? document.getElementById('mileage').value + ' км' : '';
+    const mi = (document.getElementById('mileage').value || '—') + ' км';
 
     let works = 0, parts = 0;
     document.querySelectorAll('#actual-table tbody tr').forEach(row => {
@@ -748,25 +589,26 @@
       <div class="signature-line">
         <div class="signature-block">
           <p>Мастер: _________________________</p>
+          <p style="margin-top:20px;">(${m})</p>
           <p style="margin-top:20px;">Печать организации:</p>
           <div style="margin-top:5px; border-top:1px solid #000; width:80%;"></div>
         </div>
         <div>
           <p style="margin-bottom:30px;">Подпись:</p>
           <div style="border-top:1px solid #000; width:100px;"></div>
-          <p style="margin-top:10px; font-size:12px;">(${m})</p>
         </div>
       </div>
     </div>
     `;
 
     printWindow(html);
+    resetForm(); // ← ОЧИСТКА ФОРМЫ
   }
 
-  function printOrderDocument() {
+  function printOrder() {
     const d = document.getElementById('current-date').textContent;
     const n = document.getElementById('order-number').value;
-    const m = document.getElementById('master-name').value || '';
+    const m = document.getElementById('master-name').value || '—';
 
     let works = 0, parts = 0;
     document.querySelectorAll('#actual-table tbody tr').forEach(row => {
@@ -799,13 +641,13 @@
       <div class="signature-line">
         <div class="signature-block">
           <p>Мастер: _________________________</p>
+          <p style="margin-top:20px;">(${m})</p>
           <p style="margin-top:20px;">Печать организации:</p>
           <div style="margin-top:5px; border-top:1px solid #000; width:80%;"></div>
         </div>
         <div>
           <p style="margin-bottom:30px;">Подпись:</p>
           <div style="border-top:1px solid #000; width:100px;"></div>
-          <p style="margin-top:10px; font-size:12px;">(${m})</p>
         </div>
       </div>
     </div>
@@ -889,31 +731,27 @@
     };
   }
 
-  function autoExportToCSV(data, type) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 16).replace('T', '_');
-    const filenameSuffix = type === 'zakaz-naryad' ? 'zakaz-naryad' : 'zayavka';
-    const filename = `zayavka_1c_${data.header.order}_${timestamp}_${filenameSuffix}.csv`;
-
-    const order = data.header.order;
-    const date = data.header.date;
-    const company = data.header.company || '';
-    const contact = data.header.contact || '';
-    const master = data.header.master || '';
-    const clientFio = data.header.clientFio || '';
-    const brand = data.header.brand || '';
-    const plate = data.header.plate || '';
+  function exportTo1C() {
+    const order = document.getElementById('order-number').value;
+    const date = document.getElementById('current-date').textContent;
+    const company = document.getElementById('client-company').value || '';
+    const contact = document.getElementById('client-contact').value || '';
+    const master = document.getElementById('master-name').value || '';
+    const clientFio = document.getElementById('client-fio').value || '';
+    const brand = document.getElementById('vehicle-brand').value || '';
+    const plate = document.getElementById('license-plate').value || '';
     const phone = '+7 999 599 00 03';
-    const mileage = data.header.mileage.replace(' км', '') || '';
+    const mileage = document.getElementById('mileage').value || '';
 
     let lines = [];
-    data.planned.forEach(row => {
-      lines.push([order,date,company,contact,master,clientFio,brand,plate,phone,mileage,'Заявленная',row.desc,row.qty,row.side,row.pos,'','','']);
+    document.querySelectorAll('#planned-table tbody tr').forEach(row => {
+      lines.push([order,date,company,contact,master,clientFio,brand,plate,phone,mileage,'Заявленная',row.cells[1].textContent,row.cells[2].textContent,row.cells[3].textContent,row.cells[4].textContent,'','','']);
     });
-    data.actual.forEach(row => {
-      lines.push([order,date,company,contact,master,clientFio,brand,plate,phone,mileage,'Выполненная',row.desc,row.qty,row.side,row.pos,'',row.price,row.total]);
+    document.querySelectorAll('#actual-table tbody tr').forEach(row => {
+      lines.push([order,date,company,contact,master,clientFio,brand,plate,phone,mileage,'Выполненная',row.cells[1].textContent,row.cells[2].textContent,row.cells[3].textContent,row.cells[4].textContent,'',row.cells[5].textContent,row.cells[6].textContent]);
     });
-    data.parts.forEach(row => {
-      lines.push([order,date,company,contact,master,clientFio,brand,plate,phone,mileage,'Запчасть',row.name,row.qty,'','',row.art,row.price,row.total]);
+    document.querySelectorAll('#parts-table tbody tr').forEach(row => {
+      lines.push([order,date,company,contact,master,clientFio,brand,plate,phone,mileage,'Запчасть',row.cells[2].textContent,row.cells[3].textContent,'','',row.cells[1].textContent,row.cells[4].textContent,row.cells[5].textContent]);
     });
 
     const header = ['Номер наряда','Дата','Компания','Контакт','Мастер','ФИО клиента','Марка','Гос. номер','Телефон','Пробег (км)','Тип строки','Описание/Наименование','Кол-во','Сторона','Положение','Артикул','Цена','Сумма'];
@@ -925,7 +763,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = `zayavka_1c_${order}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
