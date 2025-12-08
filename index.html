@@ -443,6 +443,7 @@
 
   function saveOrUpdateClaim(data) {
     if (currentOrderId) {
+      // Если мы редактируем существующую заявку — обновляем её
       database.ref('claims/' + currentOrderId).set(data)
         .then(() => {
           console.log('Заявка обновлена');
@@ -455,6 +456,7 @@
           exportTo1C(data);
         });
     } else {
+      // Если это новая заявка — создаём её
       const newClaimRef = database.ref('claims').push();
       newClaimRef.set(data)
         .then(() => {
